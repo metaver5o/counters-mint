@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "counters-proto"
+version = "0.1.0"
+description = "Counterparty Inscriptions (Bitcoin Counters) — CLI and indexer"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31.0",
+    "mnemonic>=0.20",
+    "ecdsa>=0.18",
+    "google-genai>=1.0.0",
+]
+
+[project.scripts]
+counters-proto = "counters_proto.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["counters_proto*"]
+
+[tool.setuptools.package-data]
+"counters_proto.server" = ["static/*"]
+"counters_proto" = ["electrum1_words.txt"]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+# Ignore upgrade/simplification rules that flag pre-existing upstream code.
+# Bug-catching rules (E, F, B, S) remain active.
+extend-ignore = [
+    "UP",    # pyupgrade — quoted annotations, union syntax (pre-existing upstream)
+    "SIM",   # simplification — nested with, ternary rewrites (pre-existing upstream)
+    "RUF",   # ruff-specific (pre-existing upstream)
+    "I",     # isort — import order in inherited files
+    "BLE",   # blind exception catches in inherited code (indexer error recovery)
+]

@@ -1,0 +1,27 @@
+name: SonarCloud Analysis
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main, staging]
+
+jobs:
+  sonar:
+    name: SonarCloud
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e . pytest pytest-cov 2>/dev/null || pip install -e . pytest
+      - run: python -m pytest tests/ --cov=counters_proto --cov-report=xml --tb=short || true
+      - uses: SonarSource/sonarcloud-github-action@master
+        continue-on-error: true  # non-blocking until project is created at sonarcloud.io
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

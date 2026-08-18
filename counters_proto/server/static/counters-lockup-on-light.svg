@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 120" width="430" height="120" role="img" aria-label="Bitcoin Counters">
+  <g><ellipse cx="60" cy="86" rx="33" ry="8" fill="#5b8def"/>
+  <ellipse cx="60" cy="73" rx="33" ry="8" fill="#3ec78f"/>
+  <ellipse cx="60" cy="60" rx="33" ry="8" fill="#ffd23f"/>
+  <ellipse cx="60" cy="47" rx="33" ry="8" fill="#ff9f1c"/>
+  <ellipse cx="60" cy="34" rx="33" ry="8" fill="#f0653f"/></g>
+  <text x="134" y="56" font-family="'IBM Plex Mono','Courier New',monospace" font-size="29" font-weight="600" fill="#16120d">Bitcoin Counters</text>
+  <text x="135" y="80" font-family="'IBM Plex Mono','Courier New',monospace" font-size="13" letter-spacing="8" fill="#7a6c58">COUNT</text>
+</svg>

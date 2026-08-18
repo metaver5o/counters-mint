@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+.pytest_cache/
+coverage.xml
+.coverage
+.ruff_cache/
+
+# Node
+web/node_modules/
+web/dist/
+
+# Secrets
+.env
+seed
+
+# Data
+data/
+
+# Docker
+*.log
