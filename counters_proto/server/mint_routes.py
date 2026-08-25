@@ -244,7 +244,7 @@ def _prepare(handler: BaseHTTPRequestHandler, config: Config) -> None:
     asset = random_numeric_asset()
     quantity = supply * COIN if divisible else supply
 
-    insc = builder.build_inscription(content_type, body, asset=asset.encode())
+    insc = builder.build_inscription(content_type, body, hrp=config.hrp, asset=asset.encode())
 
     reveal_fee = math.ceil(REVEAL_VSIZE_ESTIMATE * fee_rate)
     min_source_sats = reveal_fee + DUST + 100   # source UTXO must cover reveal fee + change
@@ -273,6 +273,8 @@ def _prepare(handler: BaseHTTPRequestHandler, config: Config) -> None:
         "commit_value_sats": DUST,          # wallet sends exactly dust to commit addr
         "min_source_sats": min_source_sats,  # source UTXO must be at least this
         "asset": asset,
+        "network": config.network,          # so the UI can label the network
+        "explorer_base": config.explorer_base,  # so the UI links to the right explorer
     })
 
 

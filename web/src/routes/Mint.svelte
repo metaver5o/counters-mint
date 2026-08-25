@@ -29,6 +29,9 @@
   let mintStep = $state<MintStep>('idle')
   let mintError = $state<string | null>(null)
   let mintTxid = $state<string | null>(null)
+  let mintNetwork = $state('mainnet')
+  // Explorer base comes from the backend (network-aware: mainnet/testnet4/signet).
+  let explorerTxBase = $state('https://mempool.space')
 
   // -------------------------------------------------------------------------
   // AI parse
@@ -151,6 +154,8 @@
       if (!prepRes.ok) throw new Error(prep.error ?? 'prepare failed')
 
       const { session_id, commit_address, commit_value_sats, min_source_sats } = prep
+      mintNetwork = prep.network ?? 'mainnet'
+      if (prep.explorer_base) explorerTxBase = prep.explorer_base
 
       // --- 3. Wallet pays commit (just DUST to taproot address) ---
       const commitTxid: string = await walletSendBitcoin(commit_address, commit_value_sats)
@@ -308,7 +313,7 @@
       <div class="done-card">
         <p class="done-title">Minted!</p>
         <p class="done-sub">Counterparty will index it in the next block. Your counter will appear in the gallery shortly.</p>
-        <a class="done-link" href="https://mempool.space/tx/{mintTxid}" target="_blank" rel="noopener">
+        <a class="done-link" href="{explorerTxBase}/tx/{mintTxid}" target="_blank" rel="noopener">
           View reveal tx on mempool.space ↗
         </a>
         <button class="btn-secondary small" onclick={resetMint}>Mint another</button>
