@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit config for counters-mint (Python indexer/server + Svelte 5 web app).
+language: en-US
+early_access: false
+
+reviews:
+  profile: chill                # signal over nitpicks; matches the terse project style
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+      - staging
+
+  # Skip generated / vendored / binary-ish paths so the bot reviews source only.
+  path_filters:
+    - "!web/node_modules/**"
+    - "!web/dist/**"
+    - "!web/.svelte-kit/**"
+    - "!counters_proto/server/static/assets/**"   # compiled Svelte bundle
+    - "!**/*.min.js"
+    - "!**/*.lock"
+    - "!package-lock.json"
+    - "!data/**"
+    - "!**/__pycache__/**"
+
+  # Targeted guidance mirroring the existing Claude review prompt.
+  path_instructions:
+    - path: "counters_proto/**/*.py"
+      instructions: >-
+        Focus on correctness of Bitcoin tx construction, Counterparty asset
+        rules, wallet signing, and the network switch (BTC_NETWORK / hrp /
+        explorer_base). Flag hardcoded mainnet assumptions. Ruff already gates
+        style; do not repeat lint nits.
+    - path: "web/src/**/*.svelte"
+      instructions: >-
+        This is Svelte 5 runes. Flag $effect that writes state it also reads,
+        $derived with side effects, and missing await on wallet calls. Verify
+        response field names against the server's /counters, /counter/:id,
+        /status, and mint _prepare contracts.
+
+  tools:
+    ruff:
+      enabled: true            # reuse the repo's existing ruff config
+    languagetool:
+      enabled: false           # prose linting off; this is a code repo
+
+chat:
+  auto_reply: true
