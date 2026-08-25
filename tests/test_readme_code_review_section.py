@@ -135,12 +135,15 @@ def test_referenced_config_files_exist_on_disk(table_rows: list[list[str]]) -> N
 def test_referenced_workflow_files_are_valid_yaml(table_rows: list[list[str]]) -> None:
     paths = _referenced_paths(table_rows)
     yaml_paths = [p for p in paths if p.endswith((".yml", ".yaml"))]
-    assert yaml_paths, "expected at least one referenced YAML workflow file"
+    assert yaml_paths, "expected at least one referenced YAML file"
     for rel_path in yaml_paths:
         content = (REPO_ROOT / rel_path).read_text(encoding="utf-8")
         parsed = yaml.safe_load(content)
         assert isinstance(parsed, dict)
-        assert "jobs" in parsed
+        # Only GitHub Actions workflows define `jobs`; other referenced config
+        # YAML (e.g. .coderabbit.yaml) legitimately has no jobs key.
+        if rel_path.startswith(".github/workflows/"):
+            assert "jobs" in parsed
 
 
 def test_ci_workflow_file_referenced_and_exists(code_review_section: str) -> None:
