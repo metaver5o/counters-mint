@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 README_PATH = REPO_ROOT / "README.md"
@@ -132,7 +133,6 @@ def test_referenced_config_files_exist_on_disk(table_rows: list[list[str]]) -> N
 
 
 def test_referenced_workflow_files_are_valid_yaml(table_rows: list[list[str]]) -> None:
-    yaml = pytest.importorskip("yaml")
     paths = _referenced_paths(table_rows)
     yaml_paths = [p for p in paths if p.endswith((".yml", ".yaml"))]
     assert yaml_paths, "expected at least one referenced YAML workflow file"
@@ -151,11 +151,10 @@ def test_ci_workflow_file_referenced_and_exists(code_review_section: str) -> Non
 def test_ci_claims_match_actual_ci_workflow_jobs(code_review_section: str) -> None:
     """The README claims CI runs 'frontend type-check + build, pytest, and ruff' —
     verify ci.yml actually defines matching job names."""
-    ci_yaml = pytest.importorskip("yaml")
     ci_content = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(
         encoding="utf-8"
     )
-    parsed = ci_yaml.safe_load(ci_content)
+    parsed = yaml.safe_load(ci_content)
     job_names = {job.get("name", "") for job in parsed["jobs"].values()}
 
     assert any("type-check" in name.lower() for name in job_names)
