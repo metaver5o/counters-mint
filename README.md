@@ -59,6 +59,20 @@ pip install -e '.[dev]'
 pytest
 ```
 
+## Code review
+
+Pull requests into `main` / `staging` are reviewed by five automated reviewers:
+
+| Reviewer | Type | Config |
+| --- | --- | --- |
+| Claude | GitHub Action | `.github/workflows/claude-review.yml` (`ANTHROPIC_API_KEY`) |
+| CodeRabbit | GitHub App | `.coderabbit.yaml` |
+| Devin | GitHub App | Code Review enabled in the Devin dashboard |
+| Sentry | GitHub App | AI PR review enabled in the Sentry GitHub integration |
+| SonarCloud | GitHub Action | `.github/workflows/sonar.yml` + `sonar-project.properties` (`SONAR_TOKEN`) |
+
+CI (`ci.yml`) must also pass: frontend type-check + build, pytest, and ruff.
+
 ## License
 
 See upstream [BitcoinCounters/counters-proto](https://github.com/BitcoinCounters/counters-proto).
