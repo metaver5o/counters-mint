@@ -1,0 +1,21 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-dev}
+    # Mint app only — no indexer (that builds the read-only explorer DB).
+    command: ["server", "--no-index", "--host", "0.0.0.0", "--port", "8082"]
+    ports:
+      - "8083:8082"
+    env_file: .env
+    environment:
+      COUNTER_DATA_DIR: /data
+    volumes:
+      - counters-data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  counters-data:

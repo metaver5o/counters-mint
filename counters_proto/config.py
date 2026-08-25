@@ -16,6 +16,40 @@ def _env(name: str, default: str) -> str:
     return os.environ.get(name, default)
 
 
+# --- network switch ---------------------------------------------------------
+#
+# BTC_NETWORK selects which chain the backends run on: "mainnet" (default),
+# "testnet4", or "signet". Flipping it repoints every network-dependent value
+# (RPC/CP endpoints, address HRP, explorer). Endpoints resolve in priority
+# order so both networks can be configured side-by-side and switched with one
+# variable:
+#   1. <NETWORK>_<NAME>  e.g. TESTNET4_BTC_RPC_URL / SIGNET_CP_API_URL
+#   2. <NAME>            the plain var, e.g. BTC_RPC_URL (back-compat / shared)
+#   3. built-in default
+
+# bech32 HRP + block explorer per network. mempool.space serves testnet4/signet
+# under a path segment; mainnet is the root.
+_HRP = {"mainnet": "bc", "testnet4": "tb", "testnet": "tb", "signet": "tb"}
+_EXPLORER = {
+    "mainnet": "https://mempool.space",
+    "testnet4": "https://mempool.space/testnet4",
+    "testnet": "https://mempool.space/testnet",
+    "signet": "https://mempool.space/signet",
+}
+
+
+def _network() -> str:
+    return os.environ.get("BTC_NETWORK", "mainnet").lower()
+
+
+def _net_env(name: str, default: str = "") -> str:
+    """Network-scoped env lookup: <NETWORK>_<name> wins, then plain <name>."""
+    prefixed = os.environ.get(f"{_network().upper()}_{name}")
+    if prefixed is not None:
+        return prefixed
+    return os.environ.get(name, default)
+
+
 def _env_int(name: str, default: int) -> int:
     return int(os.environ.get(name, default))
 
@@ -66,16 +100,20 @@ COUNTERS_PROTO_GENESIS_HEIGHT = 955251
 
 @dataclass
 class Config:
-    # bitcoind JSON-RPC
-    btc_rpc_url: str = field(default_factory=lambda: _env("BTC_RPC_URL", "http://127.0.0.1:8332"))
-    btc_cookie_file: str = field(
-        default_factory=lambda: _env("BTC_COOKIE_FILE", str(Path.home() / ".bitcoin" / ".cookie"))
-    )
-    btc_rpc_user: str = field(default_factory=lambda: _env("BTC_RPC_USER", ""))
-    btc_rpc_password: str = field(default_factory=lambda: _env("BTC_RPC_PASSWORD", ""))
+    # Active network: "mainnet" (default) | "testnet4" | "signet". Single switch
+    # that repoints everything below (see the network-switch block at top).
+    network: str = field(default_factory=_network)
 
-    # Counterparty Core v2 API
-    cp_api_url: str = field(default_factory=lambda: _env("CP_API_URL", "http://127.0.0.1:4000"))
+    # bitcoind JSON-RPC — resolved per active network (<NETWORK>_BTC_RPC_* wins).
+    btc_rpc_url: str = field(default_factory=lambda: _net_env("BTC_RPC_URL", "http://127.0.0.1:8332"))
+    btc_cookie_file: str = field(
+        default_factory=lambda: _net_env("BTC_COOKIE_FILE", str(Path.home() / ".bitcoin" / ".cookie"))
+    )
+    btc_rpc_user: str = field(default_factory=lambda: _net_env("BTC_RPC_USER", ""))
+    btc_rpc_password: str = field(default_factory=lambda: _net_env("BTC_RPC_PASSWORD", ""))
+
+    # Counterparty Core v2 API — resolved per active network (<NETWORK>_CP_API_URL wins).
+    cp_api_url: str = field(default_factory=lambda: _net_env("CP_API_URL", "http://127.0.0.1:4000"))
 
     # Storage
     data_dir: str = field(
@@ -97,6 +135,17 @@ class Config:
 
     # HTTP
     http_timeout: float = field(default_factory=lambda: _env_float("COUNTER_HTTP_TIMEOUT", 30.0))
+
+    @property
+    def hrp(self) -> str:
+        """bech32 human-readable part for addresses this tool builds itself.
+        Signet and testnet4 both use 'tb'; mainnet uses 'bc'."""
+        return _HRP.get(self.network.lower(), "tb" if not self.network.lower().startswith("main") else "bc")
+
+    @property
+    def explorer_base(self) -> str:
+        """Block-explorer base URL for the active network (for UI tx links)."""
+        return _EXPLORER.get(self.network.lower(), "https://mempool.space")
 
     @property
     def db_path(self) -> Path:
