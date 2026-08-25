@@ -432,28 +432,10 @@ def _broadcast(handler: BaseHTTPRequestHandler, config: Config) -> None:
     source_vout = sess["source_vout"]
     commit_txid = sess["commit_txid"]
     commit_vout = sess["commit_vout"]
-    wallet_spk = bytes.fromhex(sess["wallet_spk_hex"])
-    source_spk = bytes.fromhex(sess["source_spk_hex"])
-    source_value = sess["source_value"]
 
-    # Determine vin[0] witness based on script type
-    # P2TR key-path: witness = [64-byte schnorr sig]
-    # P2WPKH: wallet returns DER sig + pubkey (handled by wallets natively)
-    # We trust the wallet's signing; just use whatever it returned.
-    if source_spk[:2] == b"\x51\x20":  # OP_1 <32> = P2TR
-        vin0_witness = [vin0_sig]
-    else:
-        # Non-taproot: the wallet's PSBT_IN_PARTIAL_SIG has the DER sig
-        # For P2WPKH, we'd also need the pubkey. In practice,
-        # Unisat/Xverse only support taproot (bc1p) addresses for ordinals.
-        vin0_witness = [vin0_sig]
-
-    # Restore reveal tx and attach witnesses
-    fee_rate = sess["fee_rate"]
-    change_value = source_value + sess.get("commit_value", DUST) - math.ceil(REVEAL_VSIZE_ESTIMATE * fee_rate)
-    vouts_spk = []
-    for line in sess.get("reveal_tx_hex", ""):
-        pass  # we'll decode from the saved tx below
+    # vin[0]'s witness is the wallet's signature, applied directly below. Only
+    # P2TR key-path (bc1p) is supported: Unisat/Xverse sign taproot ordinals
+    # natively, so the returned sig is used as-is.
 
     # Decode the stored unsigned tx hex to reconstruct outputs
     btc = BitcoindClient(config)
@@ -526,8 +508,9 @@ def _status(handler: BaseHTTPRequestHandler, config: Config, sid: str) -> None:
                 resp["asset"] = asset
                 # Counter number comes from the store; CP only knows the asset
                 _update_session(sid, status="confirmed", asset_confirmed=asset)
-        except Exception:
-            pass
+        except Exception as e:
+            # Best-effort poll; the next /status call retries.
+            log.debug("CP issuance poll failed for %s: %s", sid, e)
 
     _json(handler, resp)
 
