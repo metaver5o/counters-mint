@@ -1,12 +1,13 @@
 <script lang="ts">
-  import { walletState, connectWallet, disconnectWallet } from '../wallet/store.svelte.js'
+  import { walletState, connectWallet, disconnectWallet, networkState } from '../wallet/store.svelte.js'
   import { isUnisatAvailable } from '../wallet/unisat.js'
   import { isXverseAvailable } from '../wallet/xverse.js'
   import { isHorizonAvailable } from '../wallet/horizon.js'
+  import { isOkxAvailable } from '../wallet/okx.js'
 
   let { modalOpen = $bindable(false) }: { modalOpen?: boolean } = $props()
 
-  let connecting = $state<'unisat' | 'xverse' | 'horizon' | null>(null)
+  let connecting = $state<'unisat' | 'xverse' | 'horizon' | 'okx' | null>(null)
   let error = $state<string | null>(null)
   let toastMsg = $state<string | null>(null)
 
@@ -31,7 +32,7 @@
     if (e.key === 'Escape') close()
   }
 
-  async function connect(kind: 'unisat' | 'xverse' | 'horizon') {
+  async function connect(kind: 'unisat' | 'xverse' | 'horizon' | 'okx') {
     error = null
     toastMsg = null
     connecting = kind
@@ -58,6 +59,7 @@
   const unisatAvailable = $derived(isUnisatAvailable())
   const xverseAvailable = $derived(isXverseAvailable())
   const horizonAvailable = $derived(isHorizonAvailable())
+  const okxAvailable = $derived(isOkxAvailable(networkState.network))
 </script>
 
 {#if modalOpen}
@@ -146,6 +148,26 @@
             {#if connecting === 'horizon'}
               <span class="status connecting">Connecting…</span>
             {:else if !horizonAvailable}
+              <span class="status unavail">Not installed</span>
+            {:else}
+              <span class="status avail">Ready</span>
+            {/if}
+          </button>
+
+          <button
+            class="wallet-option"
+            class:unavailable={!okxAvailable}
+            disabled={!okxAvailable || connecting !== null}
+            onclick={() => connect('okx')}
+          >
+            <svg class="wallet-logo" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="20" cy="20" r="20" fill="#000000"/>
+              <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="15" font-weight="bold" fill="white">OKX</text>
+            </svg>
+            <span class="wallet-name">OKX</span>
+            {#if connecting === 'okx'}
+              <span class="status connecting">Connecting…</span>
+            {:else if !okxAvailable}
               <span class="status unavail">Not installed</span>
             {:else}
               <span class="status avail">Ready</span>

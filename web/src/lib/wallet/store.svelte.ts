@@ -1,8 +1,60 @@
 import { connectUnisat, onUnisatAccountChange } from './unisat.js'
 import { connectXverse } from './xverse.js'
 import { connectHorizon, onHorizonAccountChange } from './horizon.js'
+import { connectOkx, onOkxAccountChange, type OkxNetwork } from './okx.js'
 
-export type WalletKind = 'unisat' | 'xverse' | 'horizon' | null
+export type WalletKind = 'unisat' | 'xverse' | 'horizon' | 'okx' | null
+export type BtcNetwork = OkxNetwork
+
+/** Active network (mainnet/testnet4/signet), learned from the backend prepare
+ *  response. OKX selects its network-specific provider from this. */
+export function activeNetwork(): BtcNetwork {
+  const n = (typeof localStorage !== 'undefined' && localStorage.getItem('btc:network')) || 'mainnet'
+  return (['mainnet', 'testnet4', 'signet'].includes(n) ? n : 'mainnet') as BtcNetwork
+}
+
+export function setActiveNetwork(n: BtcNetwork): void {
+  if (typeof localStorage !== 'undefined') localStorage.setItem('btc:network', n)
+}
+
+/** Reactive active network, so components (e.g. the wallet modal) re-derive OKX
+ *  availability once the backend network is known. */
+export let networkState = $state<{ network: BtcNetwork }>({ network: activeNetwork() })
+
+// The in-flight backend-network fetch, so connect() can await it (avoids a race
+// where the user picks OKX before /status resolves and gets the stale mainnet
+// provider).
+let _networkReady: Promise<void> | null = null
+
+/** Learn the active network from the backend (GET /status) and cache it, before
+ *  any wallet connect. Ensures OKX uses the right per-network provider on
+ *  testnet4/signet instead of defaulting to mainnet. Best-effort + idempotent. */
+export function initNetworkFromBackend(): Promise<void> {
+  if (_networkReady) return _networkReady
+  _networkReady = (async () => {
+    try {
+      const r = await fetch('/status')
+      if (!r.ok) return
+      const s = await r.json()
+      const n = s?.network
+      if (n === 'mainnet' || n === 'testnet4' || n === 'signet') {
+        setActiveNetwork(n)
+        networkState.network = n
+      }
+    } catch {
+      /* keep the cached/default network */
+    }
+  })()
+  return _networkReady
+}
+
+/** Resolve the active network, waiting for the backend fetch if it's in flight
+ *  (kicked off on app load). Guarantees OKX/Xverse connect on the right chain
+ *  even when the user clicks before /status returns. */
+async function resolvedNetwork(): Promise<BtcNetwork> {
+  await initNetworkFromBackend()
+  return activeNetwork()
+}
 
 export interface WalletState {
   connected: boolean
@@ -22,6 +74,7 @@ export let walletState = $state<WalletState>({
 
 let unsubscribeUnisat: (() => void) | null = null
 let unsubscribeHorizon: (() => void) | null = null
+let unsubscribeOkx: (() => void) | null = null
 
 export async function connectWallet(kind: WalletKind): Promise<boolean> {
   if (kind === 'unisat') {
@@ -42,7 +95,7 @@ export async function connectWallet(kind: WalletKind): Promise<boolean> {
   }
 
   if (kind === 'xverse') {
-    const result = await connectXverse()
+    const result = await connectXverse(await resolvedNetwork())
     if (!result) return false
     walletState.connected = true
     walletState.kind = 'xverse'
@@ -72,12 +125,31 @@ export async function connectWallet(kind: WalletKind): Promise<boolean> {
     return true
   }
 
+  if (kind === 'okx') {
+    const net = await resolvedNetwork()
+    const result = await connectOkx(net)
+    if (!result) return false
+    walletState.connected = true
+    walletState.kind = 'okx'
+    walletState.address = result.address
+    walletState.ordinalsAddress = null
+    walletState.publicKey = result.publicKey
+    localStorage.setItem('wallet:kind', 'okx')
+    localStorage.setItem('wallet:address', result.address)
+    unsubscribeOkx = onOkxAccountChange(net, (addr) => {
+      if (addr === null) { disconnectWallet() }
+      else { walletState.address = addr; localStorage.setItem('wallet:address', addr) }
+    })
+    return true
+  }
+
   return false
 }
 
 export function disconnectWallet(): void {
   if (unsubscribeUnisat) { unsubscribeUnisat(); unsubscribeUnisat = null }
   if (unsubscribeHorizon) { unsubscribeHorizon(); unsubscribeHorizon = null }
+  if (unsubscribeOkx) { unsubscribeOkx(); unsubscribeOkx = null }
   walletState.connected = false
   walletState.kind = null
   walletState.address = null

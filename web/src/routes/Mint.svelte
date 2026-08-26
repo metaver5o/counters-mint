@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { walletState } from '../lib/wallet/store.svelte.js'
+  import { walletState, activeNetwork } from '../lib/wallet/store.svelte.js'
+  import { signPsbtXverse } from '../lib/wallet/xverse.js'
   import FeeAdvisor from '../lib/components/FeeAdvisor.svelte'
   import NameSuggest from '../lib/components/NameSuggest.svelte'
 
@@ -79,12 +80,19 @@
   function openWallet() { window.dispatchEvent(new CustomEvent('wallet-connect')) }
 
   // -------------------------------------------------------------------------
-  // Wallet helpers — Unisat + Horizon share the same API surface
+  // Wallet helpers — Unisat / Horizon / OKX share the same provider API surface
+  // (connect/sendBitcoin/getUtxos/signPsbt). Xverse uses sats-connect and is
+  // handled separately in walletSignPsbt.
   // -------------------------------------------------------------------------
   function activeProvider() {
     const kind = walletState.kind
     if (kind === 'unisat') return (window as any).unisat
     if (kind === 'horizon') return (window as any).horizon
+    if (kind === 'okx') {
+      const w = (window as any).okxwallet
+      const net = activeNetwork()
+      return net === 'testnet4' ? w?.bitcoinTestnet : net === 'signet' ? w?.bitcoinSignet : w?.bitcoin
+    }
     return null
   }
 
@@ -97,6 +105,9 @@
   }
 
   async function walletSignPsbt(psbtHex: string, address: string): Promise<string> {
+    if (walletState.kind === 'xverse') {
+      return await signPsbtXverse(psbtHex, address)
+    }
     return await activeProvider().signPsbt(psbtHex, {
       autoFinalized: false,
       toSignInputs: [{ index: 0, address, disableTweakSigner: false }],
@@ -117,7 +128,11 @@
   async function mintCounter() {
     if (!walletState.connected || !walletState.address) { openWallet(); return }
     if (walletState.kind === 'xverse') {
-      mintError = 'Xverse PSBT signing coming soon — use Unisat or Horizon to mint.'
+      // Xverse PSBT signing is wired (sats-connect signPsbt), but its
+      // commit-funding path (sendTransfer, no getUtxos) differs from the Unisat
+      // model and is not yet implemented — a full Xverse mint is blocked here.
+      // See SKRYBITDEV-665.
+      mintError = 'Xverse commit-funding coming soon — use Unisat, OKX, or Horizon to mint.'
       mintStep = 'error'; return
     }
     if (!activeProvider()) {
@@ -352,7 +367,7 @@
           Mint Counter{isNumeric ? '' : ` — ${assetName}`}
         </button>
         {#if walletState.kind === 'xverse'}
-          <p class="wallet-note">Xverse PSBT signing coming soon — use Unisat or Horizon to mint</p>
+          <p class="wallet-note">Xverse commit-funding coming soon — use Unisat, OKX, or Horizon to mint</p>
         {/if}
       {:else}
         <button class="mint-btn connect-mode" onclick={openWallet}>

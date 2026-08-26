@@ -463,6 +463,11 @@ class Handler(BaseHTTPRequestHandler):
                 "indexed": store.get_last_height(self.config.start_height),
                 "count": store.count(),
                 "genesis": 0,
+                # Active network + explorer, so the frontend can pick the right
+                # wallet provider (esp. OKX's per-network provider) before the
+                # first /mint/prepare.
+                "network": self.config.network,
+                "explorer_base": self.config.explorer_base,
                 # Release identity: the commit names the exact deployed build,
                 # and updated (ISO 8601 UTC, null if unknown) is when the
                 # deployed code last changed.
