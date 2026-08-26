@@ -21,6 +21,13 @@ provide. Run it before promoting `staging` -> `main` for a release.
 Run the full flow (connect -> prepare -> commit send -> reveal -> sign -> broadcast
 -> status) for each wallet. All must reach a confirmed counter number.
 
+> **Prerequisite:** OKX and network-aware Xverse land with **SKRYBITDEV-665**
+> (PR #9). On a build without #665, only **Unisat** and **Horizon** complete a
+> full mint; **Xverse** signs but its commit-funding is a follow-up, and **OKX**
+> is absent. Run the OKX/Xverse rows only on a build that includes #665 (which
+> also makes Xverse request `tb1...` addresses on testnet4/signet and selects
+> OKX's `bitcoinTestnet`/`bitcoinSignet` provider).
+
 | Step | Unisat | Xverse | OKX | Horizon |
 | --- | --- | --- | --- | --- |
 | Detected + connects on testnet4 | [ ] | [ ] | [ ] | [ ] |
