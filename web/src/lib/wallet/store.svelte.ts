@@ -1,8 +1,21 @@
 import { connectUnisat, onUnisatAccountChange } from './unisat.js'
 import { connectXverse } from './xverse.js'
 import { connectHorizon, onHorizonAccountChange } from './horizon.js'
+import { connectOkx, onOkxAccountChange, type OkxNetwork } from './okx.js'
 
-export type WalletKind = 'unisat' | 'xverse' | 'horizon' | null
+export type WalletKind = 'unisat' | 'xverse' | 'horizon' | 'okx' | null
+export type BtcNetwork = OkxNetwork
+
+/** Active network (mainnet/testnet4/signet), learned from the backend prepare
+ *  response. OKX selects its network-specific provider from this. */
+export function activeNetwork(): BtcNetwork {
+  const n = (typeof localStorage !== 'undefined' && localStorage.getItem('btc:network')) || 'mainnet'
+  return (['mainnet', 'testnet4', 'signet'].includes(n) ? n : 'mainnet') as BtcNetwork
+}
+
+export function setActiveNetwork(n: BtcNetwork): void {
+  if (typeof localStorage !== 'undefined') localStorage.setItem('btc:network', n)
+}
 
 export interface WalletState {
   connected: boolean
@@ -22,6 +35,7 @@ export let walletState = $state<WalletState>({
 
 let unsubscribeUnisat: (() => void) | null = null
 let unsubscribeHorizon: (() => void) | null = null
+let unsubscribeOkx: (() => void) | null = null
 
 export async function connectWallet(kind: WalletKind): Promise<boolean> {
   if (kind === 'unisat') {
@@ -72,12 +86,31 @@ export async function connectWallet(kind: WalletKind): Promise<boolean> {
     return true
   }
 
+  if (kind === 'okx') {
+    const net = activeNetwork()
+    const result = await connectOkx(net)
+    if (!result) return false
+    walletState.connected = true
+    walletState.kind = 'okx'
+    walletState.address = result.address
+    walletState.ordinalsAddress = null
+    walletState.publicKey = result.publicKey
+    localStorage.setItem('wallet:kind', 'okx')
+    localStorage.setItem('wallet:address', result.address)
+    unsubscribeOkx = onOkxAccountChange(net, (addr) => {
+      if (addr === null) { disconnectWallet() }
+      else { walletState.address = addr; localStorage.setItem('wallet:address', addr) }
+    })
+    return true
+  }
+
   return false
 }
 
 export function disconnectWallet(): void {
   if (unsubscribeUnisat) { unsubscribeUnisat(); unsubscribeUnisat = null }
   if (unsubscribeHorizon) { unsubscribeHorizon(); unsubscribeHorizon = null }
+  if (unsubscribeOkx) { unsubscribeOkx(); unsubscribeOkx = null }
   walletState.connected = false
   walletState.kind = null
   walletState.address = null

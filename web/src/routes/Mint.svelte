@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { walletState } from '../lib/wallet/store.svelte.js'
+  import { walletState, activeNetwork } from '../lib/wallet/store.svelte.js'
+  import { signPsbtXverse } from '../lib/wallet/xverse.js'
   import FeeAdvisor from '../lib/components/FeeAdvisor.svelte'
   import NameSuggest from '../lib/components/NameSuggest.svelte'
 
@@ -79,12 +80,19 @@
   function openWallet() { window.dispatchEvent(new CustomEvent('wallet-connect')) }
 
   // -------------------------------------------------------------------------
-  // Wallet helpers — Unisat + Horizon share the same API surface
+  // Wallet helpers — Unisat / Horizon / OKX share the same provider API surface
+  // (connect/sendBitcoin/getUtxos/signPsbt). Xverse uses sats-connect and is
+  // handled separately in walletSignPsbt.
   // -------------------------------------------------------------------------
   function activeProvider() {
     const kind = walletState.kind
     if (kind === 'unisat') return (window as any).unisat
     if (kind === 'horizon') return (window as any).horizon
+    if (kind === 'okx') {
+      const w = (window as any).okxwallet
+      const net = activeNetwork()
+      return net === 'testnet4' ? w?.bitcoinTestnet : net === 'signet' ? w?.bitcoinSignet : w?.bitcoin
+    }
     return null
   }
 
@@ -97,6 +105,9 @@
   }
 
   async function walletSignPsbt(psbtHex: string, address: string): Promise<string> {
+    if (walletState.kind === 'xverse') {
+      return await signPsbtXverse(psbtHex, address)
+    }
     return await activeProvider().signPsbt(psbtHex, {
       autoFinalized: false,
       toSignInputs: [{ index: 0, address, disableTweakSigner: false }],
