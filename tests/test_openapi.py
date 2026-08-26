@@ -40,3 +40,20 @@ def test_prepare_response_schema_matches_server_fields():
     props = build_spec()["components"]["schemas"]["PrepareResponse"]["properties"]
     for field in ("session_id", "commit_address", "network", "explorer_base"):
         assert field in props
+
+
+def test_reveal_schema_matches_server_fields():
+    schemas = build_spec()["components"]["schemas"]
+    reveal = schemas["RevealRequest"]["properties"]
+    assert {"session_id", "commit_txid", "source_utxo"} <= set(reveal)
+    utxo = schemas["SourceUtxo"]["properties"]
+    assert {"txid", "vout", "value", "script_pubkey_hex"} <= set(utxo)
+    assert "reveal_psbt_hex" in schemas["RevealResponse"]["properties"]
+    # broadcast field must match the server (signed_psbt_hex, not signed_psbt)
+    assert "signed_psbt_hex" in schemas["BroadcastRequest"]["properties"]
+
+
+def test_counters_documents_query_params():
+    params = build_spec()["paths"]["/counters"]["get"]["parameters"]
+    names = {p["name"] for p in params}
+    assert {"limit", "before"} <= names

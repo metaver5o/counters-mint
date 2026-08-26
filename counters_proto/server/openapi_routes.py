@@ -52,7 +52,7 @@ def build_spec(network: str = "mainnet") -> dict:
                     "summary": "Build the reveal PSBT (server pre-signs vin[1])",
                     "operationId": "mintReveal",
                     "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/RevealRequest"}}}},
-                    "responses": {"200": {"description": "Reveal PSBT ready", "content": {"application/json": {"schema": {"type": "object"}}}}},
+                    "responses": {"200": {"description": "Reveal PSBT ready", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/RevealResponse"}}}}},
                 }
             },
             "/mint/broadcast": {
@@ -94,7 +94,20 @@ def build_spec(network: str = "mainnet") -> dict:
                     "responses": {"200": {"description": "OK"}, "503": {"description": "AI unavailable"}},
                 }
             },
-            "/counters": {"get": {"summary": "List indexed counters", "operationId": "listCounters", "responses": {"200": {"description": "OK"}}}},
+            "/counters": {
+                "get": {
+                    "summary": "List indexed counters (newest-first)",
+                    "operationId": "listCounters",
+                    "parameters": [
+                        {"name": "limit", "in": "query", "required": False,
+                         "schema": {"type": "integer", "minimum": 1, "maximum": 500, "default": 120}},
+                        {"name": "before", "in": "query", "required": False,
+                         "schema": {"type": "integer"},
+                         "description": "return counters numbered below this (pagination cursor)"},
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
             "/counter/{id}": {
                 "get": {
                     "summary": "One counter by id/asset",
@@ -130,8 +143,27 @@ def build_spec(network: str = "mainnet") -> dict:
                         "explorer_base": {"type": "string"},
                     },
                 },
-                "RevealRequest": {"type": "object", "required": ["session_id"], "properties": {"session_id": {"type": "string"}}},
-                "BroadcastRequest": {"type": "object", "required": ["session_id", "signed_psbt"], "properties": {"session_id": {"type": "string"}, "signed_psbt": {"type": "string"}}},
+                "RevealRequest": {
+                    "type": "object",
+                    "required": ["session_id", "commit_txid", "source_utxo"],
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "commit_txid": {"type": "string", "description": "txid of the wallet's dust->commit tx"},
+                        "source_utxo": {"$ref": "#/components/schemas/SourceUtxo"},
+                    },
+                },
+                "SourceUtxo": {
+                    "type": "object",
+                    "required": ["txid", "vout", "value", "script_pubkey_hex"],
+                    "properties": {
+                        "txid": {"type": "string"},
+                        "vout": {"type": "integer"},
+                        "value": {"type": "integer", "description": "sats"},
+                        "script_pubkey_hex": {"type": "string"},
+                    },
+                },
+                "RevealResponse": {"type": "object", "properties": {"reveal_psbt_hex": {"type": "string"}}},
+                "BroadcastRequest": {"type": "object", "required": ["session_id", "signed_psbt_hex"], "properties": {"session_id": {"type": "string"}, "signed_psbt_hex": {"type": "string"}}},
                 "BroadcastResponse": {"type": "object", "properties": {"reveal_txid": {"type": "string"}}},
                 "StatusResponse": {
                     "type": "object",

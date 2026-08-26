@@ -15,11 +15,11 @@ Returns: `{session_id, commit_address, commit_value_sats, min_source_sats,
 asset, network, explorer_base}`
 
 ### POST /mint/reveal
-Body: `{session_id, ...commit/source utxo details...}`
-Returns the reveal PSBT for the wallet to sign (server pre-signs its own input).
+Body: `{session_id, commit_txid, source_utxo:{txid, vout, value, script_pubkey_hex}}`
+Returns `{reveal_psbt_hex}` for the wallet to sign (server pre-signs its own input).
 
 ### POST /mint/broadcast
-Body: `{session_id, signed_psbt}` -> `{reveal_txid}`
+Body: `{session_id, signed_psbt_hex}` -> `{reveal_txid}`
 
 ### GET /mint/status/{session_id}
 Returns: `{status, reveal_txid, counter_number, asset}`
