@@ -21,22 +21,39 @@ export function setActiveNetwork(n: BtcNetwork): void {
  *  availability once the backend network is known. */
 export let networkState = $state<{ network: BtcNetwork }>({ network: activeNetwork() })
 
+// The in-flight backend-network fetch, so connect() can await it (avoids a race
+// where the user picks OKX before /status resolves and gets the stale mainnet
+// provider).
+let _networkReady: Promise<void> | null = null
+
 /** Learn the active network from the backend (GET /status) and cache it, before
  *  any wallet connect. Ensures OKX uses the right per-network provider on
- *  testnet4/signet instead of defaulting to mainnet. Best-effort. */
-export async function initNetworkFromBackend(): Promise<void> {
-  try {
-    const r = await fetch('/status')
-    if (!r.ok) return
-    const s = await r.json()
-    const n = s?.network
-    if (n === 'mainnet' || n === 'testnet4' || n === 'signet') {
-      setActiveNetwork(n)
-      networkState.network = n
+ *  testnet4/signet instead of defaulting to mainnet. Best-effort + idempotent. */
+export function initNetworkFromBackend(): Promise<void> {
+  if (_networkReady) return _networkReady
+  _networkReady = (async () => {
+    try {
+      const r = await fetch('/status')
+      if (!r.ok) return
+      const s = await r.json()
+      const n = s?.network
+      if (n === 'mainnet' || n === 'testnet4' || n === 'signet') {
+        setActiveNetwork(n)
+        networkState.network = n
+      }
+    } catch {
+      /* keep the cached/default network */
     }
-  } catch {
-    /* keep the cached/default network */
-  }
+  })()
+  return _networkReady
+}
+
+/** Resolve the active network, waiting for the backend fetch if it's in flight
+ *  (kicked off on app load). Guarantees OKX/Xverse connect on the right chain
+ *  even when the user clicks before /status returns. */
+async function resolvedNetwork(): Promise<BtcNetwork> {
+  await initNetworkFromBackend()
+  return activeNetwork()
 }
 
 export interface WalletState {
@@ -78,7 +95,7 @@ export async function connectWallet(kind: WalletKind): Promise<boolean> {
   }
 
   if (kind === 'xverse') {
-    const result = await connectXverse(activeNetwork())
+    const result = await connectXverse(await resolvedNetwork())
     if (!result) return false
     walletState.connected = true
     walletState.kind = 'xverse'
@@ -109,7 +126,7 @@ export async function connectWallet(kind: WalletKind): Promise<boolean> {
   }
 
   if (kind === 'okx') {
-    const net = activeNetwork()
+    const net = await resolvedNetwork()
     const result = await connectOkx(net)
     if (!result) return false
     walletState.connected = true
