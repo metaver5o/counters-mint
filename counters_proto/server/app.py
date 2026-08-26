@@ -39,6 +39,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from . import card, png, preview
 from .ai_routes import handle_ai
 from .mint_routes import handle_mint
+from .openapi_routes import handle_openapi
 from ..bitcoind import BitcoindClient
 from ..config import Config
 from ..counterparty import CounterpartyClient, CounterpartyError
@@ -390,6 +391,8 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         try:
+            if handle_openapi(self, path, self.command, self.config.network):
+                return
             if handle_ai(self, path, self.command):
                 return
             if handle_mint(self, path, self.command, self.config):
