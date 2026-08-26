@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@sats-connect/core": "^0.8.0"
+    "@sats-connect/core": "^0.17.6"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
