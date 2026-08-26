@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { walletState, connectWallet, disconnectWallet } from '../wallet/store.svelte.js'
+  import { walletState, connectWallet, disconnectWallet, networkState } from '../wallet/store.svelte.js'
   import { isUnisatAvailable } from '../wallet/unisat.js'
   import { isXverseAvailable } from '../wallet/xverse.js'
   import { isHorizonAvailable } from '../wallet/horizon.js'
@@ -59,7 +59,7 @@
   const unisatAvailable = $derived(isUnisatAvailable())
   const xverseAvailable = $derived(isXverseAvailable())
   const horizonAvailable = $derived(isHorizonAvailable())
-  const okxAvailable = $derived(isOkxAvailable())
+  const okxAvailable = $derived(isOkxAvailable(networkState.network))
 </script>
 
 {#if modalOpen}

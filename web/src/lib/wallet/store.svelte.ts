@@ -17,6 +17,28 @@ export function setActiveNetwork(n: BtcNetwork): void {
   if (typeof localStorage !== 'undefined') localStorage.setItem('btc:network', n)
 }
 
+/** Reactive active network, so components (e.g. the wallet modal) re-derive OKX
+ *  availability once the backend network is known. */
+export let networkState = $state<{ network: BtcNetwork }>({ network: activeNetwork() })
+
+/** Learn the active network from the backend (GET /status) and cache it, before
+ *  any wallet connect. Ensures OKX uses the right per-network provider on
+ *  testnet4/signet instead of defaulting to mainnet. Best-effort. */
+export async function initNetworkFromBackend(): Promise<void> {
+  try {
+    const r = await fetch('/status')
+    if (!r.ok) return
+    const s = await r.json()
+    const n = s?.network
+    if (n === 'mainnet' || n === 'testnet4' || n === 'signet') {
+      setActiveNetwork(n)
+      networkState.network = n
+    }
+  } catch {
+    /* keep the cached/default network */
+  }
+}
+
 export interface WalletState {
   connected: boolean
   kind: WalletKind

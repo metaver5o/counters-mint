@@ -44,10 +44,10 @@ export function okxProvider(network: OkxNetwork = 'mainnet'): OkxProvider | unde
   return window.okxwallet?.[PROVIDER_KEY[network]]
 }
 
-export function isOkxAvailable(): boolean {
-  if (typeof window === 'undefined') return false
-  const w = window.okxwallet
-  return !!(w && (w.bitcoin || w.bitcoinTestnet || w.bitcoinSignet))
+/** True only when OKX exposes the provider for the given network, so the modal
+ *  never shows "Ready" for a network whose provider is missing. */
+export function isOkxAvailable(network: OkxNetwork = 'mainnet'): boolean {
+  return !!okxProvider(network)
 }
 
 export async function connectOkx(
