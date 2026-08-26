@@ -456,7 +456,11 @@ def _broadcast(handler: BaseHTTPRequestHandler, config: Config) -> None:
         ],
         vout=vouts,
     )
-    reveal_tx.vin[0].witness = [vin0_sig]
+    try:
+        reveal_tx.vin[0].witness = _taproot_keypath_witness(vin0_sig)
+    except ValueError as e:
+        _json(handler, {"error": f"invalid wallet signature: {e}"}, 400)
+        return
     reveal_tx.vin[1].witness = vin1_witness if vin1_witness else [
         bytes.fromhex(w) for w in sess["reveal_witness_vin1"]
     ]
@@ -470,10 +474,9 @@ def _broadcast(handler: BaseHTTPRequestHandler, config: Config) -> None:
         # Try testmempoolaccept for a better error message
         try:
             checks = btc._call("testmempoolaccept", [[raw_hex]])
-            reason = checks[0].get("reject-reason", str(e)) if checks else str(e)
         except Exception:
-            reason = str(e)
-        _json(handler, {"error": f"broadcast failed: {reason}"}, 400)
+            checks = None
+        _json(handler, {"error": f"broadcast failed: {_reject_reason(checks, e)}"}, 400)
         return
 
     _update_session(sid, reveal_txid=reveal_txid, status="broadcast")
@@ -515,6 +518,45 @@ def _status(handler: BaseHTTPRequestHandler, config: Config, sid: str) -> None:
 # ---------------------------------------------------------------------------
 # Router
 # ---------------------------------------------------------------------------
+
+# BIP341-valid sighash-type bytes for an explicit (65-byte) taproot signature.
+_VALID_SIGHASH_SUFFIXES = frozenset({0x01, 0x02, 0x03, 0x81, 0x82, 0x83})
+
+
+def _taproot_keypath_witness(vin0_sig: bytes) -> list[bytes]:
+    """Validate + wrap the wallet's vin[0] signature for a P2TR key-path spend.
+
+    The source input is always taproot (Unisat/Xverse/OKX only sign bc1p for
+    ordinals), so vin[0]'s witness is a single BIP340 Schnorr signature: 64
+    bytes (implicit SIGHASH_DEFAULT), or 65 with a trailing sighash-type byte.
+    Rejecting anything else here turns a wallet that returned the wrong signature
+    form (e.g. a DER/ECDSA sig from a non-taproot path) into a clear 400 instead
+    of a malformed broadcast.
+    """
+    if not isinstance(vin0_sig, (bytes, bytearray)) or len(vin0_sig) not in (64, 65):
+        raise ValueError(
+            f"unexpected vin[0] signature length {len(vin0_sig) if vin0_sig else 0} "
+            "(need a 64/65-byte taproot Schnorr signature)"
+        )
+    # BIP341: a 65-byte sig's suffix is the sighash type and must be one of
+    # 0x01/0x02/0x03/0x81/0x82/0x83 — 0x00 (SIGHASH_DEFAULT) is only valid as the
+    # implicit 64-byte form, so reject an explicit 0x00 (and any other value).
+    if len(vin0_sig) == 65 and vin0_sig[64] not in _VALID_SIGHASH_SUFFIXES:
+        raise ValueError(
+            f"invalid taproot sighash type 0x{vin0_sig[64]:02x} "
+            "(BIP341 allows 0x01/02/03/81/82/83 on a 65-byte signature)"
+        )
+    return [bytes(vin0_sig)]
+
+
+def _reject_reason(checks: list | None, err: Exception) -> str:
+    """Best error string for a failed broadcast: prefer bitcoind's
+    testmempoolaccept `reject-reason`, else the raw sendrawtransaction error."""
+    if checks:
+        first = checks[0] or {}
+        return first.get("reject-reason") or str(err)
+    return str(err)
+
 
 def handle_mint(handler: BaseHTTPRequestHandler, path: str, method: str,
                 config: Config) -> bool:
