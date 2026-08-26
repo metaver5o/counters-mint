@@ -128,7 +128,11 @@
   async function mintCounter() {
     if (!walletState.connected || !walletState.address) { openWallet(); return }
     if (walletState.kind === 'xverse') {
-      mintError = 'Xverse PSBT signing coming soon — use Unisat or Horizon to mint.'
+      // Xverse PSBT signing is wired (sats-connect signPsbt), but its
+      // commit-funding path (sendTransfer, no getUtxos) differs from the Unisat
+      // model and is not yet implemented — a full Xverse mint is blocked here.
+      // See SKRYBITDEV-665.
+      mintError = 'Xverse commit-funding coming soon — use Unisat, OKX, or Horizon to mint.'
       mintStep = 'error'; return
     }
     if (!activeProvider()) {
@@ -363,7 +367,7 @@
           Mint Counter{isNumeric ? '' : ` — ${assetName}`}
         </button>
         {#if walletState.kind === 'xverse'}
-          <p class="wallet-note">Xverse PSBT signing coming soon — use Unisat or Horizon to mint</p>
+          <p class="wallet-note">Xverse commit-funding coming soon — use Unisat, OKX, or Horizon to mint</p>
         {/if}
       {:else}
         <button class="mint-btn connect-mode" onclick={openWallet}>
