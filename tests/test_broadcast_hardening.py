@@ -19,9 +19,19 @@ def test_witness_accepts_64_byte_schnorr():
     assert _taproot_keypath_witness(sig) == [sig]
 
 
-def test_witness_accepts_65_byte_schnorr_with_sighash():
-    sig = b"\x22" * 65
+@pytest.mark.parametrize("suffix", [0x01, 0x02, 0x03, 0x81, 0x82, 0x83])
+def test_witness_accepts_65_byte_schnorr_with_valid_sighash(suffix):
+    sig = b"\x22" * 64 + bytes([suffix])
     assert _taproot_keypath_witness(sig) == [sig]
+
+
+@pytest.mark.parametrize("suffix", [0x00, 0x04, 0x41, 0x84, 0xff])
+def test_witness_rejects_invalid_sighash_suffix(suffix):
+    # BIP341: 0x00 (valid only as the implicit 64-byte form) and any non-listed
+    # byte must be rejected before it reaches sendrawtransaction.
+    sig = b"\x22" * 64 + bytes([suffix])
+    with pytest.raises(ValueError, match="sighash type"):
+        _taproot_keypath_witness(sig)
 
 
 @pytest.mark.parametrize("bad", [b"", b"\x00" * 63, b"\x00" * 66, b"\x00" * 71])
