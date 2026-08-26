@@ -40,7 +40,18 @@ export function isXverseAvailable(): boolean {
   return typeof window !== 'undefined' && !!(window as any).XverseProviders?.BitcoinProvider
 }
 
-export async function connectXverse(): Promise<{
+// Map our BTC_NETWORK to the sats-connect network type. testnet4 uses Xverse's
+// Testnet4 type; signet uses Signet — so connect returns tb1... addresses on
+// test networks instead of always requesting mainnet.
+const XVERSE_NETWORK: Record<'mainnet' | 'testnet4' | 'signet', BitcoinNetworkType> = {
+  mainnet: BitcoinNetworkType.Mainnet,
+  testnet4: BitcoinNetworkType.Testnet4,
+  signet: BitcoinNetworkType.Signet,
+}
+
+export async function connectXverse(
+  network: 'mainnet' | 'testnet4' | 'signet' = 'mainnet',
+): Promise<{
   paymentAddress: string
   ordinalsAddress: string
   publicKey: string
@@ -50,7 +61,7 @@ export async function connectXverse(): Promise<{
       payload: {
         purposes: [AddressPurpose.Payment, AddressPurpose.Ordinals],
         message: 'Connect to Bitcoin Counters',
-        network: { type: BitcoinNetworkType.Mainnet },
+        network: { type: XVERSE_NETWORK[network] },
       },
       onFinish: (response) => {
         const payment = response.addresses.find((a) => a.purpose === AddressPurpose.Payment)

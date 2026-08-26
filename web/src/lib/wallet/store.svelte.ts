@@ -78,7 +78,7 @@ export async function connectWallet(kind: WalletKind): Promise<boolean> {
   }
 
   if (kind === 'xverse') {
-    const result = await connectXverse()
+    const result = await connectXverse(activeNetwork())
     if (!result) return false
     walletState.connected = true
     walletState.kind = 'xverse'
