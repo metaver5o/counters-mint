@@ -19,7 +19,15 @@ provide. Run it before promoting `staging` -> `main` for a release.
 ## Per-wallet matrix
 
 Run the full flow (connect -> prepare -> commit send -> reveal -> sign -> broadcast
--> status) for each wallet. All must reach a confirmed counter number.
+-> status) for each wallet.
+
+**Acceptance criterion, scoped by network + build:**
+- On **testnet4** (Counterparty backend present via `TESTNET4_CP_API_URL`): each
+  wallet supported by the build must reach a **confirmed counter number**.
+- On **signet**: require a confirmed counter number **only if** `SIGNET_CP_API_URL`
+  is configured; otherwise verify broadcast + explorer, and treat CP indexing as
+  N/A (no signet CP backend).
+- Only run the OKX / Xverse rows on a build that includes #665 (below).
 
 > **Prerequisite:** OKX and network-aware Xverse land with **SKRYBITDEV-665**
 > (PR #9). On a build without #665, only **Unisat** and **Horizon** complete a
